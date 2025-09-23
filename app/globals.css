@@ -1,26 +1,133 @@
 @import "tailwindcss";
 
+/* =========================
+   FONT VARS
+========================= */
 :root {
-  --background: #ffffff;
-  --foreground: #171717;
-}
-
-@theme inline {
-  --color-background: var(--background);
-  --color-foreground: var(--foreground);
   --font-sans: var(--font-geist-sans);
   --font-mono: var(--font-geist-mono);
+
+  /* ===== THEME — LIGHT ===== */
+  /* background gradient (soft) + glow aksen */
+  --bg-from: #eef2ff;  /* indigo-100 */
+  --bg-via:  #f3e8ff;  /* purple-100 */
+  --bg-to:   #dbeafe;  /* blue-100 */
+  --acc1: rgba(99,102,241,.18);   /* indigo-500 @18% */
+  --acc2: rgba(236,72,153,.18);   /* fuchsia-500 @18% */
+
+  /* SURFACE: warna panel/kartu (lebih pekat supaya kontras) */
+  --surface-bg: rgba(255,255,255,.96);
+  --surface-border: #e5e7eb;      /* neutral-200 */
+  --text-primary: #0f172a;        /* slate-900 */
+  --text-muted:   #475569;        /* slate-600/700 */
+
+  color-scheme: light;
 }
 
-@media (prefers-color-scheme: dark) {
-  :root {
-    --background: #0a0a0a;
-    --foreground: #ededed;
-  }
+html.dark{
+  /* ===== THEME — DARK ===== */
+  --bg-from:#0b1220; --bg-via:#0a0f1d; --bg-to:#0a0e2a;
+  --acc1: rgba(99,102,241,.35);
+  --acc2: rgba(236,72,153,.35);
+
+  --surface-bg: rgba(255,255,255,.08);
+  --surface-border: rgba(255,255,255,.18);
+  --text-primary: #ffffff;
+  --text-muted:   rgba(255,255,255,.7);
+
+  color-scheme: dark;
 }
 
-body {
-  background: var(--background);
-  color: var(--foreground);
-  font-family: Arial, Helvetica, sans-serif;
+/* =========================
+   SIDEBAR TOKENS (kontras di light & dark)
+========================= */
+:root {
+  /* Light */
+  --sidebar-bg: rgba(255, 255, 255, 0.92);
+  --sidebar-border: #e5e7eb;   /* neutral-200 */
+  --sidebar-text: #111827;     /* neutral-900 */
+  --sidebar-muted: #6b7280;    /* neutral-600/700 */
 }
+html.dark {
+  /* Dark */
+  --sidebar-bg: rgba(0, 0, 0, 0.28);
+  --sidebar-border: rgba(255, 255, 255, 0.18);
+  --sidebar-text: #ffffff;
+  --sidebar-muted: rgba(255, 255, 255, 0.75);
+}
+
+/* tinggi penuh */
+html, body, :root { height: 100%; }
+
+/* JANGAN set background di body/html */
+body{
+  background: transparent !important;
+  color: inherit;
+  font-family: var(--font-sans), ui-sans-serif, system-ui, -apple-system,
+    "Segoe UI", Roboto, "Helvetica Neue", Arial, "Noto Sans",
+    "Apple Color Emoji", "Segoe UI Emoji", "Segoe UI Symbol";
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+/* =========================
+   BACKGROUND APP (gradient + glow)
+========================= */
+.bg-app{
+  background-image:
+    radial-gradient(600px 400px at 15% 20%, var(--acc1), transparent 60%),
+    radial-gradient(800px 600px at 85% 10%, var(--acc2), transparent 55%),
+    linear-gradient(135deg, var(--bg-from), var(--bg-via), var(--bg-to));
+  background-attachment: fixed, fixed, fixed;
+  background-size: auto, auto, 400% 400%;
+  background-repeat: no-repeat;
+}
+
+/* =========================
+   TOKENS UTIL UNTUK SURFACE & TEKS
+========================= */
+.surface{
+  background: var(--surface-bg);
+  border: 1px solid var(--surface-border);
+  backdrop-filter: blur(8px);
+  border-radius: 1rem;           /* sama dengan rounded-2xl */
+}
+
+.text-primary{ color: var(--text-primary); }
+.text-muted{   color: var(--text-muted);   }
+
+/* =========================
+   SIDEBAR UTIL
+========================= */
+.sidebar-panel {
+  background: var(--sidebar-bg);
+  border-right: 1px solid var(--sidebar-border);
+  backdrop-filter: blur(12px);
+}
+.sidebar-text  { color: var(--sidebar-text); }
+.sidebar-muted { color: var(--sidebar-muted); }
+.sidebar { color: var(--sidebar-text); }
+:root { --sidebar-bg: rgba(246, 248, 255, 0.96); }
+
+/* ==== Sidebar light: beri tint supaya pill terlihat ==== */
+:root { 
+  /* sebelumnya: rgba(246, 248, 255, 0.96) */
+  --sidebar-bg: rgba(238, 242, 255, 0.96); /* indigo-50 tint */
+}
+
+/* ==== Light mode: pill aktif yang jelas ==== */
+html:not(.dark) .sidebar a[aria-current="page"] {
+  background: #ffffff !important;                   /* pill putih kontras */
+  border: 1px solid #e5e7eb !important;             /* neutral-200 */
+  box-shadow: 0 6px 18px rgba(79,70,229,.08) !important; /* glow lembut */
+}
+
+/* label & ikon di item aktif (light)  */
+html:not(.dark) .sidebar a[aria-current="page"] .nav-label {
+  color: #1e293b !important;  /* slate-800 */
+}
+html:not(.dark) .sidebar a[aria-current="page"] .nav-icon {
+  color: #4f46e5 !important;  /* indigo-600 */
+}
+
+/* (biarkan rules dark yang sudah ada – tidak perlu diubah) */
