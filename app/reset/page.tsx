@@ -1,6 +1,10 @@
 // app/reset/page.tsx
-"use client";
-import { useState, useMemo, useEffect } from "react";
+'use client';
+
+export const dynamic = 'force-dynamic';
+export const revalidate = 0;
+
+import { Suspense, useState, useMemo, useEffect } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { withCsrfHeader } from "@/lib/csrf-client";
 
@@ -17,9 +21,10 @@ function allOk(c: ReturnType<typeof checks>) {
   return c.len && c.lower && c.upper && c.digit && c.symbol;
 }
 
-export default function Reset() {
+// ← Pindahkan logika lama ke komponen "inner" yang akan dibungkus Suspense
+function ResetInner() {
   const r = useRouter();
-  const sp = useSearchParams();
+  const sp = useSearchParams();                    // ✅ aman di dalam <Suspense>
   const tokenFromUrl = sp.get("token") || "";
 
   const [token, setToken] = useState(tokenFromUrl);
@@ -89,21 +94,11 @@ export default function Reset() {
           />
 
           <div className="text-xs text-white/80 space-y-1 rounded-md bg-white/5 p-3">
-            <div className={c.len ? "text-emerald-300" : "text-red-300"}>
-              {c.len ? "✓" : "•"} Minimal 12 karakter
-            </div>
-            <div className={c.lower ? "text-emerald-300" : "text-red-300"}>
-              {c.lower ? "✓" : "•"} Huruf kecil (a–z)
-            </div>
-            <div className={c.upper ? "text-emerald-300" : "text-red-300"}>
-              {c.upper ? "✓" : "•"} Huruf besar (A–Z)
-            </div>
-            <div className={c.digit ? "text-emerald-300" : "text-red-300"}>
-              {c.digit ? "✓" : "•"} Angka (0–9)
-            </div>
-            <div className={c.symbol ? "text-emerald-300" : "text-red-300"}>
-              {c.symbol ? "✓" : "•"} Simbol (mis. !@#$%)
-            </div>
+            <div className={c.len ? "text-emerald-300" : "text-red-300"}>{c.len ? "✓" : "•"} Minimal 12 karakter</div>
+            <div className={c.lower ? "text-emerald-300" : "text-red-300"}>{c.lower ? "✓" : "•"} Huruf kecil (a–z)</div>
+            <div className={c.upper ? "text-emerald-300" : "text-red-300"}>{c.upper ? "✓" : "•"} Huruf besar (A–Z)</div>
+            <div className={c.digit ? "text-emerald-300" : "text-red-300"}>{c.digit ? "✓" : "•"} Angka (0–9)</div>
+            <div className={c.symbol ? "text-emerald-300" : "text-red-300"}>{c.symbol ? "✓" : "•"} Simbol (mis. !@#$%)</div>
             {pw && (
               <div className={pw === pw2 ? "text-emerald-300" : "text-red-300"}>
                 {pw === pw2 ? "✓" : "•"} Kedua password sama
@@ -120,5 +115,14 @@ export default function Reset() {
         </form>
       </div>
     </div>
+  );
+}
+
+// Page component berisi Suspense boundary
+export default function ResetPage() {
+  return (
+    <Suspense fallback={<div className="p-6 text-sm text-neutral-500">Loading…</div>}>
+      <ResetInner />
+    </Suspense>
   );
 }
