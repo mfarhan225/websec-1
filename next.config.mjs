@@ -1,13 +1,10 @@
-// next.config.ts
-import type { NextConfig } from "next";
-
+// next.config.mjs
 const isProd = process.env.NODE_ENV === "production";
 
 // --- Content Security Policy (prod only) ---
 const csp = [
   "default-src 'self'",
   "script-src 'self'",
-  // Tailwind/Next inject some inline <style>, keep this allowed
   "style-src 'self' 'unsafe-inline'",
   "img-src 'self' data: blob:",
   "font-src 'self' data:",
@@ -35,29 +32,22 @@ const prodOnlyHeaders = [
   { key: "Content-Security-Policy", value: csp },
 ];
 
-const nextConfig: NextConfig = {
+/** @type {import('next').NextConfig} */
+const nextConfig = {
   reactStrictMode: true,
 
-  /**
-   * Netlify tip: don’t let TypeScript/ESLint fail the build.
-   * (You still get editor/CI warnings, but Netlify build continues.)
-   */
+  // Biarkan build Netlify lanjut walau ada error TS/ESLint (CI bisa cek terpisah)
   eslint: { ignoreDuringBuilds: true },
   typescript: { ignoreBuildErrors: true },
 
-  /**
-   * If you’re not using next/image or remote loaders, this avoids image optimisation
-   * at build time and is often simpler on Netlify’s runtime.
-   */
+  // Hindari image optimization saat runtime Netlify
   images: { unoptimized: true },
 
   async headers() {
     return [
       {
         source: "/:path*",
-        headers: isProd
-          ? [...commonSecurityHeaders, ...prodOnlyHeaders]
-          : [...commonSecurityHeaders],
+        headers: isProd ? [...commonSecurityHeaders, ...prodOnlyHeaders] : [...commonSecurityHeaders],
       },
       { source: "/dashboard/:path*", headers: [{ key: "Cache-Control", value: "no-store" }] },
       { source: "/api/:path*", headers: [{ key: "Cache-Control", value: "no-store" }] },
