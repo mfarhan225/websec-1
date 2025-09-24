@@ -10,28 +10,34 @@ export default function Login() {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [err, setErr] = useState("");
+  const [loading, setLoading] = useState(false);
 
   async function submit(e: React.FormEvent) {
     e.preventDefault();
     setErr("");
-
-    const res = await fetch(
-      "/api/login",
-      withCsrfHeader({
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ email, password }),
-      })
-    );
-
-    if (res.ok) r.push("/dashboard");
-    else setErr((await res.json()).error || "Login failed");
+    setLoading(true);
+    try {
+      const res = await fetch(
+        "/api/login",
+        withCsrfHeader({
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ email, password }),
+        })
+      );
+      if (res.ok) r.push("/dashboard");
+      else setErr((await res.json()).error || "Login failed");
+    } catch {
+      setErr("Network error");
+    } finally {
+      setLoading(false);
+    }
   }
 
   return (
     <div className="min-h-[calc(100vh-80px)] grid place-items-center">
       <div className="surface w-full max-w-md p-6 shadow-[0_8px_30px_rgba(0,0,0,0.12)]">
-        <h1 className="text-2xl font-semibold text-primary mb-4">Credense — Login</h1>
+        <h1 className="mb-4 text-2xl font-semibold text-primary">Credense — Login</h1>
 
         {err && (
           <p className="mb-3 text-sm text-red-600 dark:text-rose-300" aria-live="polite">
@@ -39,18 +45,18 @@ export default function Login() {
           </p>
         )}
 
-        <form onSubmit={submit} className="space-y-3">
+        <form onSubmit={submit} className="space-y-3" aria-busy={loading}>
           <label className="block">
             <span className="sr-only">Email</span>
             <input
-              className="w-full rounded-xl px-3 py-2
-                         border border-[var(--surface-border)] bg-[var(--surface-bg)]
+              className="w-full rounded-xl border border-[var(--surface-border)] bg-[var(--surface-bg)] px-3 py-2
                          text-primary placeholder:text-neutral-500 dark:placeholder:text-slate-300"
               placeholder="Email"
               type="email"
               autoComplete="email"
               autoCapitalize="none"
               spellCheck={false}
+              autoFocus
               value={email}
               onChange={(e) => setEmail(e.target.value)}
               required
@@ -60,8 +66,7 @@ export default function Login() {
           <label className="block">
             <span className="sr-only">Password</span>
             <input
-              className="w-full rounded-xl px-3 py-2
-                         border border-[var(--surface-border)] bg-[var(--surface-bg)]
+              className="w-full rounded-xl border border-[var(--surface-border)] bg-[var(--surface-bg)] px-3 py-2
                          text-primary placeholder:text-neutral-500 dark:placeholder:text-slate-300"
               placeholder="Password"
               type="password"
@@ -72,12 +77,9 @@ export default function Login() {
             />
           </label>
 
-          <button
-            className="w-full rounded-xl px-3 py-2 font-medium
-                       bg-neutral-900 text-white hover:bg-black
-                       dark:bg-white/20 dark:text-white dark:hover:bg-white/25"
-          >
-            Sign in
+          {/* Tombol kontras di light + kaca di dark (dari globals.css) */}
+          <button type="submit" disabled={loading} className="btn-primary w-full">
+            {loading ? "Signing in…" : "Sign in"}
           </button>
         </form>
 

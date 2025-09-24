@@ -1,66 +1,72 @@
 @import "tailwindcss";
 
 /* =========================
-   FONT VARS
+   FONT & THEME TOKENS
 ========================= */
 :root {
   --font-sans: var(--font-geist-sans);
   --font-mono: var(--font-geist-mono);
 
-  /* ===== THEME — LIGHT ===== */
-  /* background gradient (soft) + glow aksen */
-  --bg-from: #eef2ff;  /* indigo-100 */
-  --bg-via:  #f3e8ff;  /* purple-100 */
-  --bg-to:   #dbeafe;  /* blue-100 */
+  /* LIGHT theme */
+  --bg-from:#eef2ff;  /* indigo-100 */
+  --bg-via: #f3e8ff;  /* purple-100 */
+  --bg-to:  #dbeafe;  /* blue-100 */
   --acc1: rgba(99,102,241,.18);   /* indigo-500 @18% */
   --acc2: rgba(236,72,153,.18);   /* fuchsia-500 @18% */
 
-  /* SURFACE: warna panel/kartu (lebih pekat supaya kontras) */
   --surface-bg: rgba(255,255,255,.96);
   --surface-border: #e5e7eb;      /* neutral-200 */
   --text-primary: #0f172a;        /* slate-900 */
   --text-muted:   #475569;        /* slate-600/700 */
 
+  /* Sidebar (light) */
+  --sidebar-bg: rgba(238,242,255,.96); /* indigo-50 tint */
+  --sidebar-border: #e5e7eb;
+  --sidebar-text: #111827;
+  --sidebar-muted:#6b7280;
+
+  /* Buttons (light) */
+  --btn-bg:#111827;         /* kontras */
+  --btn-text:#ffffff;
+  --btn-hover:#0b1220;
+  --btn-border:#111827;
+  --btn-ring:rgba(79,70,229,.35);
+
   color-scheme: light;
 }
 
-html.dark{
-  /* ===== THEME — DARK ===== */
+html.dark {
+  /* DARK theme */
   --bg-from:#0b1220; --bg-via:#0a0f1d; --bg-to:#0a0e2a;
   --acc1: rgba(99,102,241,.35);
   --acc2: rgba(236,72,153,.35);
 
   --surface-bg: rgba(255,255,255,.08);
   --surface-border: rgba(255,255,255,.18);
-  --text-primary: #ffffff;
-  --text-muted:   rgba(255,255,255,.7);
+  --text-primary:#ffffff;
+  --text-muted:  rgba(255,255,255,.7);
+
+  /* Sidebar (dark) */
+  --sidebar-bg: rgba(0,0,0,.28);
+  --sidebar-border: rgba(255,255,255,.18);
+  --sidebar-text:#ffffff;
+  --sidebar-muted:rgba(255,255,255,.75);
+
+  /* Buttons (dark) */
+  --btn-bg: rgba(255,255,255,.16); /* kaca */
+  --btn-text:#ffffff;
+  --btn-hover: rgba(255,255,255,.24);
+  --btn-border: rgba(255,255,255,.22);
+  --btn-ring: rgba(255,255,255,.55);
 
   color-scheme: dark;
 }
 
 /* =========================
-   SIDEBAR TOKENS (kontras di light & dark)
+   RESET RINGAN
 ========================= */
-:root {
-  /* Light */
-  --sidebar-bg: rgba(255, 255, 255, 0.92);
-  --sidebar-border: #e5e7eb;   /* neutral-200 */
-  --sidebar-text: #111827;     /* neutral-900 */
-  --sidebar-muted: #6b7280;    /* neutral-600/700 */
-}
-html.dark {
-  /* Dark */
-  --sidebar-bg: rgba(0, 0, 0, 0.28);
-  --sidebar-border: rgba(255, 255, 255, 0.18);
-  --sidebar-text: #ffffff;
-  --sidebar-muted: rgba(255, 255, 255, 0.75);
-}
-
-/* tinggi penuh */
 html, body, :root { height: 100%; }
-
-/* JANGAN set background di body/html */
-body{
+body {
   background: transparent !important;
   color: inherit;
   font-family: var(--font-sans), ui-sans-serif, system-ui, -apple-system,
@@ -84,20 +90,19 @@ body{
 }
 
 /* =========================
-   TOKENS UTIL UNTUK SURFACE & TEKS
+   SURFACE & TEXT
 ========================= */
 .surface{
   background: var(--surface-bg);
   border: 1px solid var(--surface-border);
   backdrop-filter: blur(8px);
-  border-radius: 1rem;           /* sama dengan rounded-2xl */
+  border-radius: 1rem; /* rounded-2xl */
 }
-
 .text-primary{ color: var(--text-primary); }
-.text-muted{   color: var(--text-muted);   }
+.text-muted  { color: var(--text-muted); }
 
 /* =========================
-   SIDEBAR UTIL
+   SIDEBAR
 ========================= */
 .sidebar-panel {
   background: var(--sidebar-bg);
@@ -106,28 +111,33 @@ body{
 }
 .sidebar-text  { color: var(--sidebar-text); }
 .sidebar-muted { color: var(--sidebar-muted); }
-.sidebar { color: var(--sidebar-text); }
-:root { --sidebar-bg: rgba(246, 248, 255, 0.96); }
+.sidebar       { color: var(--sidebar-text); }
 
-/* ==== Sidebar light: beri tint supaya pill terlihat ==== */
-:root { 
-  /* sebelumnya: rgba(246, 248, 255, 0.96) */
-  --sidebar-bg: rgba(238, 242, 255, 0.96); /* indigo-50 tint */
+/* Light: item aktif terlihat sebagai pill putih kontras */
+html:not(.dark) .sidebar a[aria-current="page"]{
+  background:#fff !important;
+  border:1px solid #e5e7eb !important;
+  box-shadow:0 6px 18px rgba(79,70,229,.08) !important;
 }
+html:not(.dark) .sidebar a[aria-current="page"] .nav-label{ color:#1e293b !important; }
+html:not(.dark) .sidebar a[aria-current="page"] .nav-icon { color:#4f46e5 !important; }
 
-/* ==== Light mode: pill aktif yang jelas ==== */
-html:not(.dark) .sidebar a[aria-current="page"] {
-  background: #ffffff !important;                   /* pill putih kontras */
-  border: 1px solid #e5e7eb !important;             /* neutral-200 */
-  box-shadow: 0 6px 18px rgba(79,70,229,.08) !important; /* glow lembut */
+/* =========================
+   BUTTON UTIL
+========================= */
+.btn-primary{
+  background: var(--btn-bg);
+  color: var(--btn-text);
+  border: 1px solid var(--btn-border);
+  border-radius: 0.75rem;         /* rounded-xl */
+  padding: 0.625rem 0.75rem;      /* py-2.5 px-3 */
+  font-weight: 600;               /* font-medium */
+  box-shadow: 0 1px 1px rgba(0,0,0,.05), 0 8px 30px rgba(0,0,0,.06);
+  transition: background-color .15s ease, box-shadow .15s ease;
 }
-
-/* label & ikon di item aktif (light)  */
-html:not(.dark) .sidebar a[aria-current="page"] .nav-label {
-  color: #1e293b !important;  /* slate-800 */
+.btn-primary:hover{ background: var(--btn-hover); }
+.btn-primary:focus-visible{
+  outline: none;
+  box-shadow: 0 0 0 3px var(--btn-ring);
 }
-html:not(.dark) .sidebar a[aria-current="page"] .nav-icon {
-  color: #4f46e5 !important;  /* indigo-600 */
-}
-
-/* (biarkan rules dark yang sudah ada – tidak perlu diubah) */
+.btn-primary:disabled{ opacity:.6; cursor:not-allowed; }
