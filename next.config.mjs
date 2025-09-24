@@ -4,13 +4,13 @@ import { fileURLToPath } from "url";
 
 /** ESM __dirname */
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
-
 const isProd = process.env.NODE_ENV === "production";
 
 // --- Content Security Policy (prod only) ---
+// Selaraskan dengan netlify.toml: izinkan inline script untuk Next hydration
 const csp = [
   "default-src 'self'",
-  "script-src 'self'",
+  "script-src 'self' 'unsafe-inline'",   // <-- penting
   "style-src 'self' 'unsafe-inline'",
   "img-src 'self' data: blob:",
   "font-src 'self' data:",
@@ -25,7 +25,8 @@ const csp = [
 
 const commonSecurityHeaders = [
   { key: "X-Content-Type-Options", value: "nosniff" },
-  { key: "Referrer-Policy", value: "no-referrer" },
+  // selaraskan dengan netlify.toml agar tidak ada konflik
+  { key: "Referrer-Policy", value: "strict-origin-when-cross-origin" },
   { key: "X-Frame-Options", value: "DENY" },
   { key: "X-DNS-Prefetch-Control", value: "off" },
   { key: "Cross-Origin-Opener-Policy", value: "same-origin" },
@@ -47,7 +48,7 @@ const nextConfig = {
 
   images: { unoptimized: true },
 
-  // ⬇️ KUNCI: map alias '@' → root project agar import '@/...' selalu resolve
+  // Alias '@' → root project
   webpack: (config) => {
     config.resolve.alias["@"] = path.resolve(__dirname);
     return config;
