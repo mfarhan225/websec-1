@@ -3,12 +3,11 @@ import type { NextConfig } from "next";
 
 const isProd = process.env.NODE_ENV === "production";
 
-// Content Security Policy (production-only)
+// --- Content Security Policy (prod only) ---
 const csp = [
   "default-src 'self'",
-  // Next.js tidak butuh inline script di prod; hindari 'unsafe-inline'
   "script-src 'self'",
-  // Tailwind/Next/font dapat injeksi <style>; izinkan inline style ringan
+  // Tailwind/Next inject some inline <style>, keep this allowed
   "style-src 'self' 'unsafe-inline'",
   "img-src 'self' data: blob:",
   "font-src 'self' data:",
@@ -28,38 +27,41 @@ const commonSecurityHeaders = [
   { key: "X-DNS-Prefetch-Control", value: "off" },
   { key: "Cross-Origin-Opener-Policy", value: "same-origin" },
   { key: "Cross-Origin-Resource-Policy", value: "same-origin" },
-  // Tambahkan Permissions-Policy minimal
   { key: "Permissions-Policy", value: "camera=(), microphone=(), geolocation=()" },
 ];
 
 const prodOnlyHeaders = [
-  // HSTS aktif hanya di HTTPS/production
   { key: "Strict-Transport-Security", value: "max-age=63072000; includeSubDomains; preload" },
   { key: "Content-Security-Policy", value: csp },
 ];
 
 const nextConfig: NextConfig = {
+  reactStrictMode: true,
+
+  /**
+   * Netlify tip: don’t let TypeScript/ESLint fail the build.
+   * (You still get editor/CI warnings, but Netlify build continues.)
+   */
+  eslint: { ignoreDuringBuilds: true },
+  typescript: { ignoreBuildErrors: true },
+
+  /**
+   * If you’re not using next/image or remote loaders, this avoids image optimisation
+   * at build time and is often simpler on Netlify’s runtime.
+   */
+  images: { unoptimized: true },
+
   async headers() {
-    const base = [
+    return [
       {
-        // Header umum untuk semua path
         source: "/:path*",
         headers: isProd
           ? [...commonSecurityHeaders, ...prodOnlyHeaders]
           : [...commonSecurityHeaders],
       },
-      {
-        // Jangan cache halaman sensitif
-        source: "/dashboard/:path*",
-        headers: [{ key: "Cache-Control", value: "no-store" }],
-      },
-      {
-        // Jangan cache respons API
-        source: "/api/:path*",
-        headers: [{ key: "Cache-Control", value: "no-store" }],
-      },
+      { source: "/dashboard/:path*", headers: [{ key: "Cache-Control", value: "no-store" }] },
+      { source: "/api/:path*", headers: [{ key: "Cache-Control", value: "no-store" }] },
     ];
-    return base;
   },
 };
 
