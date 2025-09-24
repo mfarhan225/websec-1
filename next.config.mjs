@@ -1,4 +1,10 @@
 // next.config.mjs
+import path from "path";
+import { fileURLToPath } from "url";
+
+/** ESM __dirname */
+const __dirname = path.dirname(fileURLToPath(import.meta.url));
+
 const isProd = process.env.NODE_ENV === "production";
 
 // --- Content Security Policy (prod only) ---
@@ -36,18 +42,24 @@ const prodOnlyHeaders = [
 const nextConfig = {
   reactStrictMode: true,
 
-  // Biarkan build Netlify lanjut walau ada error TS/ESLint (CI bisa cek terpisah)
   eslint: { ignoreDuringBuilds: true },
   typescript: { ignoreBuildErrors: true },
 
-  // Hindari image optimization saat runtime Netlify
   images: { unoptimized: true },
+
+  // ⬇️ KUNCI: map alias '@' → root project agar import '@/...' selalu resolve
+  webpack: (config) => {
+    config.resolve.alias["@"] = path.resolve(__dirname);
+    return config;
+  },
 
   async headers() {
     return [
       {
         source: "/:path*",
-        headers: isProd ? [...commonSecurityHeaders, ...prodOnlyHeaders] : [...commonSecurityHeaders],
+        headers: isProd
+          ? [...commonSecurityHeaders, ...prodOnlyHeaders]
+          : [...commonSecurityHeaders],
       },
       { source: "/dashboard/:path*", headers: [{ key: "Cache-Control", value: "no-store" }] },
       { source: "/api/:path*", headers: [{ key: "Cache-Control", value: "no-store" }] },
