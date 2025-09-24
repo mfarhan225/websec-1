@@ -1,4 +1,7 @@
 // app/api/reset/route.ts
+export const dynamic = 'force-dynamic';   // cegah prerender/collect saat build
+export const revalidate = 0;              // jangan cache respons API
+
 import { NextResponse } from "next/server";
 import { z } from "zod";
 import {
@@ -39,18 +42,23 @@ export async function POST(req: Request) {
   } catch {
     return json({ ok: false, error: "Invalid request" }, { status: 400 });
   }
+
   if (!strong(password)) {
-    return json({ ok: false, error: "Weak password. Use upper, lower, number, and symbol." }, { status: 400 });
+    return json(
+      { ok: false, error: "Weak password. Use upper, lower, number, and symbol." },
+      { status: 400 }
+    );
   }
 
   try {
-    const payload = await verifyPasswordResetToken(token);
+    const payload = await verifyPasswordResetToken(token); // pakai kunci JWT via lib/auth (lazy)
     if (isResetJtiUsed(payload.jti)) {
       return json({ ok: false, error: "Token already used" }, { status: 400 });
     }
+
     const user = await getUserById(payload.sub);
     if (!user) {
-      // perlakuan generik
+      // Perlakuan generik (hindari enumeration)
       markResetJtiUsed(payload.jti);
       return json({ ok: false, error: "Invalid token" }, { status: 400 });
     }
@@ -58,7 +66,7 @@ export async function POST(req: Request) {
     await updateUserPassword(user.id, password);
     markResetJtiUsed(payload.jti);
 
-    // (Catatan produksi: sebaiknya revoke sesi aktif / rotate signing key)
+    // (Catatan produksi: idealnya revoke sesi aktif / rotate signing key)
     return json({ ok: true, message: "Password updated. Please login." });
   } catch {
     return json({ ok: false, error: "Invalid or expired token" }, { status: 400 });

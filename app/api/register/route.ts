@@ -1,4 +1,7 @@
 // app/api/register/route.ts
+export const dynamic = 'force-dynamic';   // cegah prerendering di build
+export const revalidate = 0;              // jangan cache respons API
+
 import { NextResponse } from "next/server";
 import { z } from "zod";
 import { createUser } from "@/lib/auth";

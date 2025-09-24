@@ -1,76 +1,94 @@
 // lib/jwt-keys.ts
 
-// Minimum 64 byte (512-bit) untuk kekuatan setara HS512
+// ====== Konstanta & util ======
 const MIN_BYTES = 64;
-
 const BASE64URL_RE = /^[A-Za-z0-9_-]+$/;
 
 function decodeBase64UrlToBytes(b64url: string): Uint8Array {
-  // Normalisasi ke base64 standar + padding
   const normalized = b64url.replace(/-/g, "+").replace(/_/g, "/");
   const padLen = (4 - (normalized.length % 4)) % 4;
   const base64 = normalized + "=".repeat(padLen);
 
+  // Browser/Edge runtime
   if (typeof atob === "function") {
-    // Runtime Edge/Browser
     const bin = atob(base64);
     const out = new Uint8Array(bin.length);
     for (let i = 0; i < bin.length; i++) out[i] = bin.charCodeAt(i);
     return out;
   }
   // Node.js
-  // eslint-disable-next-line @typescript-eslint/ban-ts-comment
-  // @ts-ignore - Buffer tersedia di Node runtime
+  // @ts-ignore
   return Buffer.from(base64, "base64");
 }
 
-function byteLengthOfSecret(name: string, val: string): number {
-  // Jika terlihat seperti base64url, coba decode lalu ukur byte sebenarnya.
+function byteLengthOfSecret(val: string): number {
   if (BASE64URL_RE.test(val)) {
     try {
       return decodeBase64UrlToBytes(val).byteLength;
     } catch {
-      // Jika gagal decode, jatuhkan ke UTF-8 length agar tetap gagal di bawah ini bila terlalu pendek
+      // fallback ke UTF-8 length
     }
   }
-  // Ukur sebagai UTF-8 (untuk secret non-base64url)
   return new TextEncoder().encode(val).byteLength;
 }
 
 function assertStrong(name: string, val?: string) {
   if (!val) throw new Error(`${name} is missing`);
-  const bytes = byteLengthOfSecret(name, val);
+  const bytes = byteLengthOfSecret(val);
   if (bytes < MIN_BYTES) {
     throw new Error(`${name} too short; need >= ${MIN_BYTES} bytes of entropy`);
   }
 }
 
-const KID = process.env.CREDENSE_JWT_KID || "current";
-const CURRENT = process.env[`CREDENSE_JWT_SECRET_${KID}` as const];
-const OLD = process.env.CREDENSE_JWT_SECRET_old; // optional
+// ====== Lazy loader + cache ======
+type LoadedKeys = {
+  jwtKeys: Record<string, string>;
+  currentKid: string;
+};
+let _cache: LoadedKeys | null = null;
 
-// Validasi kekuatan secret
-assertStrong(`CREDENSE_JWT_SECRET_${KID}`, CURRENT);
-if (OLD) assertStrong("CREDENSE_JWT_SECRET_old", OLD);
+function loadKeys(): LoadedKeys {
+  const KID = process.env.CREDENSE_JWT_KID || "current";
+  const CURRENT = process.env[`CREDENSE_JWT_SECRET_${KID}` as const];
+  const OLD = process.env.CREDENSE_JWT_SECRET_old; // optional
 
-// Peringatan operasional (tanpa membocorkan nilai secret)
-if (process.env.NODE_ENV === "production" && process.env.CREDENSE_JWT_KID == null) {
-  // Tidak melempar error agar dev tetap bisa jalan, tapi beri sinyal di prod
-  console.warn(
-    "[credense] CREDENSE_JWT_KID is not set in production; defaulting to 'current'. " +
+  // Validasi (baru dilakukan saat dipanggil di runtime, bukan saat import)
+  assertStrong(`CREDENSE_JWT_SECRET_${KID}`, CURRENT);
+  if (OLD) assertStrong("CREDENSE_JWT_SECRET_old", OLD);
+
+  if (process.env.NODE_ENV === "production" && process.env.CREDENSE_JWT_KID == null) {
+    console.warn(
+      "[credense] CREDENSE_JWT_KID is not set in production; defaulting to 'current'. " +
       "Consider using versioned KIDs (e.g., v1, v2) for clearer rotations."
-  );
+    );
+  }
+
+  return {
+    jwtKeys: {
+      [KID]: CURRENT as string,
+      ...(OLD ? { old: OLD } : {}),
+    },
+    currentKid: KID,
+  };
 }
 
-export const jwtKeys: Record<string, string> = {
-  [KID]: CURRENT as string,
-  ...(OLD ? { old: OLD } : {}),
-};
+// ====== API publik (dipakai oleh route/middleware) ======
+export function getJwtKeys(): Record<string, string> {
+  if (!_cache) _cache = loadKeys();
+  return _cache.jwtKeys;
+}
+export function getCurrentKid(): string {
+  if (!_cache) _cache = loadKeys();
+  return _cache.currentKid;
+}
+export function getCurrentSecret(): string {
+  const keys = getJwtKeys();
+  return keys[getCurrentKid()];
+}
 
-export const currentKid = KID;
-
-// (Opsional) helper untuk pemanggil yang ingin mendapatkan bytes siap pakai.
-// Saat kamu siap menyamakan pemakaian di auth/middleware, bisa gunakan ini.
-// export const keyBytes: Record<string, Uint8Array> = Object.fromEntries(
-//   Object.entries(jwtKeys).map(([kid, secret]) => [kid, new TextEncoder().encode(secret)])
-// );
+// Kalau butuh bentuk byte:
+export function getCurrentKeyBytes(): Uint8Array {
+  const secret = getCurrentSecret();
+  // Jika lib kamu butuh raw bytes: encode UTF-8.
+  return new TextEncoder().encode(secret);
+}

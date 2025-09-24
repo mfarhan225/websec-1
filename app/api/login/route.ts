@@ -1,8 +1,11 @@
 // app/api/login/route.ts
+export const dynamic = 'force-dynamic';  // ⬅️ cegah prerender/collect di build
+export const revalidate = 0;             // ⬅️ jangan cache respons API
+
 import { NextResponse } from "next/server";
 import { z } from "zod";
 import { getUserByEmail, verifyPassword, signSession } from "@/lib/auth";
-import { verifyCsrf } from "@/lib/csrf"; // ✅ NEW
+import { verifyCsrf } from "@/lib/csrf";
 
 const schema = z.object({
   email: z.string().email(),
@@ -12,18 +15,16 @@ const schema = z.object({
 // ---- Simple rate limiter (in-memory) ----
 type RLState = { count: number; first: number; blockedUntil?: number };
 const rl = new Map<string, RLState>();
-const MAX_ATTEMPTS = 5;          // max 5 percobaan
-const WINDOW_MS = 15 * 60_000;   // 15 menit
-const BLOCK_MS = 10 * 60_000;    // blok 10 menit
+const MAX_ATTEMPTS = 5;
+const WINDOW_MS = 15 * 60_000;
+const BLOCK_MS = 10 * 60_000;
 
 function getClientIp(req: Request) {
   const xf = req.headers.get("x-forwarded-for") || "";
   const ip = xf.split(",")[0]?.trim() || req.headers.get("x-real-ip") || "0.0.0.0";
   return ip;
 }
-function rlKey(ip: string, email: string) {
-  return `${ip}|${email}`;
-}
+function rlKey(ip: string, email: string) { return `${ip}|${email}`; }
 function isBlocked(key: string) {
   const s = rl.get(key);
   if (!s) return false;
@@ -43,14 +44,13 @@ function recordAttempt(key: string, success: boolean) {
 }
 
 export async function POST(req: Request) {
-  // Selalu no-store untuk endpoint sensitif
   const json = (body: any, init?: ResponseInit) => {
     const res = NextResponse.json(body, init);
     res.headers.set("Cache-Control", "no-store");
     return res;
   };
 
-  // ✅ CSRF check (double-submit)
+  // CSRF (double-submit cookie/header)
   const v = verifyCsrf(req);
   if (!v.ok) return json({ ok: false, error: "CSRF failed" }, { status: 403 });
 
@@ -90,13 +90,13 @@ export async function POST(req: Request) {
 
     const res = json({ ok: true });
     res.cookies.set({
-      name: "credense_session",
+      name: "credense_session",  // ⬅️ pastikan nama ini dipakai konsisten di middleware
       value: token,
       httpOnly: true,
       secure: true,
-      sameSite: "strict", // ubah ke "lax" bila perlu
+      sameSite: "lax",           // ⬅️ Lax biasanya cukup aman & lebih kompatibel
       path: "/",
-      maxAge: 60 * 60 * 2, // 2 jam
+      maxAge: 60 * 60 * 2,       // 2 jam
     });
     return res;
   } catch {

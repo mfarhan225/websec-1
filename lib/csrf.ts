@@ -4,12 +4,12 @@ import { NextResponse } from "next/server";
 export const CSRF_COOKIE = "credense_csrf";
 export const CSRF_HEADER = "x-csrf-token";
 
-// Base64url encode yg kompatibel Edge/Node
+// Base64url encode kompatibel Edge/Node
 function toBase64Url(bytes: Uint8Array): string {
   let b64: string;
-  // Node punya Buffer; Edge punya btoa
   // @ts-ignore
   if (typeof Buffer !== "undefined") {
+    // Node
     // @ts-ignore
     b64 = Buffer.from(bytes).toString("base64");
   } else {
@@ -60,9 +60,9 @@ export function setCsrfCookie(res: NextResponse, token?: string, maxAgeSeconds =
   res.cookies.set({
     name: CSRF_COOKIE,
     value: t,
-    httpOnly: false,      // HARUS bisa dibaca JS untuk dikirim via header
-    secure: true,
-    sameSite: "strict",
+    httpOnly: false, // perlu bisa dibaca JS → dikirim ulang via header
+    secure: process.env.NODE_ENV === "production", // ⬅️ aman di prod, fleksibel di dev
+    sameSite: "lax", // ⬅️ lebih user-friendly, masih cukup aman
     path: "/",
     maxAge: maxAgeSeconds,
   });

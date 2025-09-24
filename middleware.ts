@@ -2,17 +2,24 @@
 import { NextResponse } from "next/server";
 import type { NextRequest } from "next/server";
 import { jwtVerify } from "jose";
-import { jwtKeys, currentKid } from "./lib/jwt-keys";
 import { CSRF_COOKIE, createCsrfToken } from "./lib/csrf";
+import { getJwtKeys, getCurrentKid } from "./lib/jwt-keys"; // ⬅️ pakai getter (lazy)
 
-const enc = new TextEncoder();
-const keyBytes: Record<string, Uint8Array> = Object.fromEntries(
-  Object.entries(jwtKeys).map(([kid, secret]) => [kid, enc.encode(secret)])
-);
 const ALG = "HS512" as const;
-
-// ✅ Lindungi juga documents, audit, settings
 const PROTECTED_PREFIXES = ["/dashboard", "/documents", "/audit", "/settings", "/clients", "/docs"];
+
+// ===== lazy cache utk kunci (tidak akses ENV saat import)
+const enc = new TextEncoder();
+let _keyBytes: Record<string, Uint8Array> | null = null;
+let _kid: string | null = null;
+function ensureKeys() {
+  if (!_keyBytes || !_kid) {
+    const jwtKeys = getJwtKeys(); // ⬅️ baru akses ENV saat benar-benar dibutuhkan
+    _kid = getCurrentKid();
+    _keyBytes = Object.fromEntries(Object.entries(jwtKeys).map(([kid, secret]) => [kid, enc.encode(secret)]));
+  }
+  return { keyBytes: _keyBytes!, kid: _kid! };
+}
 
 export async function middleware(req: NextRequest) {
   const { pathname } = req.nextUrl;
@@ -27,17 +34,18 @@ export async function middleware(req: NextRequest) {
         name: CSRF_COOKIE,
         value: csrfSeed,
         httpOnly: false,
-        secure: true,
-        sameSite: "strict",
+        secure: process.env.NODE_ENV === "production", // dev lebih fleksibel
+        sameSite: "lax", // lebih kompatibel lintas navigasi
         path: "/",
-        maxAge: 60 * 60 * 2, // 2 jam
+        maxAge: 60 * 60 * 2,
       });
     }
     return res;
   };
 
-  // Halaman publik (termasuk /, /login, /register, /forgot, /reset, assets)
-  if (!PROTECTED_PREFIXES.some((p) => pathname.startsWith(p))) {
+  // Halaman publik (termasuk assets)
+  const isProtected = PROTECTED_PREFIXES.some((p) => pathname.startsWith(p));
+  if (!isProtected) {
     return withCsrf(NextResponse.next());
   }
 
@@ -52,11 +60,13 @@ export async function middleware(req: NextRequest) {
   }
 
   try {
+    const { keyBytes, kid } = ensureKeys(); // ⬅️ baru siapkan kunci di sini
+
     const { payload, protectedHeader } = await jwtVerify(
       token,
       async (header) => {
         if (header?.kid && keyBytes[header.kid]) return keyBytes[header.kid];
-        return keyBytes[currentKid];
+        return keyBytes[kid];
       },
       { algorithms: [ALG] }
     );
@@ -76,7 +86,6 @@ export async function middleware(req: NextRequest) {
   }
 }
 
-// Jalankan middleware untuk semua path (agar bisa seed CSRF cookie)
 export const config = {
   matcher: ["/:path*"],
 };

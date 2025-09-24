@@ -1,4 +1,7 @@
 // app/api/forgot/route.ts
+export const dynamic = 'force-dynamic';   // ⬅️ penting agar tidak di-prerender/collect saat build
+export const revalidate = 0;              // ⬅️ non-cache untuk API ini
+
 import { NextResponse } from "next/server";
 import { z } from "zod";
 import { getUserByEmail, signPasswordResetToken } from "@/lib/auth";
@@ -41,7 +44,7 @@ export async function POST(req: Request) {
   const v = verifyCsrf(req);
   if (!v.ok) return json({ ok: false, error: "CSRF failed" }, { status: 403 });
 
-  // Validasi
+  // Validasi input
   let email: string;
   try {
     const p = schema.parse(await req.json());
@@ -59,10 +62,9 @@ export async function POST(req: Request) {
 
   // Anti-enumeration: selalu balas generik
   try {
-    const user = await getUserByEmail(email);
+    const user = await getUserByEmail(email);    // ⬅️ pastikan lib/auth hanya akses ENV lewat fungsi lazy (runtime)
     if (user) {
-      const token = await signPasswordResetToken(user);
-      // DEMO: tampilkan token di console; di dev juga kirimkan di respons
+      const token = await signPasswordResetToken(user); // ⬅️ sama: jangan ada SECRET di top-level
       console.warn(`[DEV] Password reset token for ${email}: ${token}`);
       if (process.env.NODE_ENV !== "production") {
         bump(k);
@@ -70,7 +72,6 @@ export async function POST(req: Request) {
           ok: true,
           message: "If that account exists, you'll receive reset instructions shortly.",
           devToken: token,
-          // Untuk tugas: buka /reset?token=<token>
         });
       }
     }

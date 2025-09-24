@@ -1,3 +1,4 @@
+# netlify.toml
 [build]
   command = "npm run build"
   publish = ".next"
@@ -7,18 +8,15 @@
   NODE_VERSION = "20"
   NEXT_TELEMETRY_DISABLED = "1"
 
-# Aktifkan Next.js Runtime di Netlify
 [[plugins]]
   package = "@netlify/plugin-nextjs"
 
-# --- SECURITY HEADERS (CDN layer) ---
-
-# Header umum untuk semua path
+# --- SECURITY HEADERS ---
 [[headers]]
   for = "/*"
   [headers.values]
     X-Content-Type-Options = "nosniff"
-    Referrer-Policy = "no-referrer"
+    Referrer-Policy = "strict-origin-when-cross-origin" # lebih fleksibel
     X-Frame-Options = "DENY"
     X-DNS-Prefetch-Control = "off"
     Cross-Origin-Opener-Policy = "same-origin"
@@ -27,13 +25,13 @@
     Strict-Transport-Security = "max-age=63072000; includeSubDomains; preload"
     Content-Security-Policy = "default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob:; font-src 'self' data:; connect-src 'self'; media-src 'self' blob:; object-src 'none'; base-uri 'self'; form-action 'self'; frame-ancestors 'none'; upgrade-insecure-requests"
 
-# Jangan cache halaman sensitif
+# No cache for dashboard
 [[headers]]
   for = "/dashboard/*"
   [headers.values]
     Cache-Control = "no-store"
 
-# Jangan cache respons API
+# No cache for API
 [[headers]]
   for = "/api/*"
   [headers.values]
