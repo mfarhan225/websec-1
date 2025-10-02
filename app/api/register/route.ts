@@ -1,104 +1,94 @@
 // app/api/register/route.ts
-export const dynamic = 'force-dynamic';   // cegah prerendering di build
-export const revalidate = 0;              // jangan cache respons API
+export const dynamic = "force-dynamic";
+export const revalidate = 0;
 
 import { NextResponse } from "next/server";
 import { z } from "zod";
+import { verifyCsrf } from "@/lib/csrf";
+import {
+  getClientIp,
+  rlKey,
+  rlIsBlocked,
+  rlBumpFailure,
+  rlReset,
+  DEFAULT_RL,
+} from "@/lib/rate-limit";
 import { createUser } from "@/lib/auth";
-import { verifyCsrf } from "@/lib/csrf"; // ✅ CSRF check
 
+// Validasi payload: samakan dengan login (min 12)
 const schema = z.object({
   email: z.string().email(),
-  password: z.string().min(12).max(72), // tingkatkan minimal length
+  password: z.string().min(12).max(72),
 });
 
-// Cek kompleksitas dasar: huruf kecil, besar, angka, simbol
+// Kebijakan kompleksitas: huruf kecil, besar, angka, simbol
 function isStrongPassword(pw: string) {
-  const hasLower = /[a-z]/.test(pw);
-  const hasUpper = /[A-Z]/.test(pw);
-  const hasDigit = /[0-9]/.test(pw);
-  const hasSymbol = /[^A-Za-z0-9]/.test(pw);
-  return hasLower && hasUpper && hasDigit && hasSymbol;
+  return (
+    /[a-z]/.test(pw) &&
+    /[A-Z]/.test(pw) &&
+    /[0-9]/.test(pw) &&
+    /[^A-Za-z0-9]/.test(pw)
+  );
 }
 
-// ---- Simple rate limiter (in-memory) ----
-type RLState = { count: number; first: number };
-const rl = new Map<string, RLState>();
-const MAX_ATTEMPTS = 5;
-const WINDOW_MS = 15 * 60_000;
-
-function getClientIp(req: Request) {
-  const xf = req.headers.get("x-forwarded-for") || "";
-  const ip = xf.split(",")[0]?.trim() || req.headers.get("x-real-ip") || "0.0.0.0";
-  return ip;
-}
-function rlKey(ip: string, email: string) {
-  return `${ip}|${email}`;
-}
-function recordAttempt(key: string) {
-  const now = Date.now();
-  const cur = rl.get(key);
-  if (!cur || now - cur.first > WINDOW_MS) {
-    rl.set(key, { count: 1, first: now });
-  } else {
-    rl.set(key, { count: cur.count + 1, first: cur.first });
-  }
-}
-function attemptsLeft(key: string) {
-  const s = rl.get(key);
-  if (!s) return MAX_ATTEMPTS;
-  const now = Date.now();
-  if (now - s.first > WINDOW_MS) return MAX_ATTEMPTS;
-  return Math.max(0, MAX_ATTEMPTS - s.count);
+// Sedikit delay untuk meredam timing oracle di kasus gagal
+async function randomDelay(minMs = 200, maxMs = 600) {
+  const ms = Math.floor(Math.random() * (maxMs - minMs + 1)) + minMs;
+  return new Promise((r) => setTimeout(r, ms));
 }
 
 export async function POST(req: Request) {
   const json = (body: any, init?: ResponseInit) => {
     const res = NextResponse.json(body, init);
     res.headers.set("Cache-Control", "no-store");
+    res.headers.set("Pragma", "no-cache");
+    res.headers.set("Expires", "0");
     return res;
   };
 
-  // ✅ CSRF verification (double-submit)
+  // 1) CSRF
   const v = verifyCsrf(req);
   if (!v.ok) return json({ ok: false, error: "CSRF failed" }, { status: 403 });
 
-  let email: string;
-  let password: string;
-
-  // Validasi payload
+  // 2) Parse input
+  let email: string, password: string;
   try {
-    const parsed = schema.parse(await req.json());
-    email = parsed.email.trim().toLowerCase();
-    password = parsed.password;
+    const p = schema.parse(await req.json());
+    email = p.email.trim().toLowerCase();
+    password = p.password;
   } catch {
     return json({ ok: false, error: "Invalid request" }, { status: 400 });
   }
 
+  // 3) Rate limit (IP+email)
   const ip = getClientIp(req);
-  const key = rlKey(ip, email);
-
-  // Rate limit
-  if (attemptsLeft(key) <= 0) {
-    return json({ ok: false, error: "Too many attempts. Try again later." }, { status: 429 });
+  const key = rlKey(ip, email, "register");
+  const blocked = rlIsBlocked(key);
+  if (blocked.blocked) {
+    return json(
+      { ok: false, error: "Too many attempts. Try again later." },
+      { status: 429, headers: { "Retry-After": String(blocked.retryAfter) } }
+    );
   }
 
-  // Kebijakan password
+  // 4) Password policy
   if (!isStrongPassword(password)) {
-    recordAttempt(key);
+    rlBumpFailure(key, DEFAULT_RL);
     return json(
       { ok: false, error: "Weak password. Use upper, lower, number, and symbol." },
       { status: 400 }
     );
   }
 
+  // 5) Buat user di in-memory store (lib/auth)
   try {
-    await createUser(email, password, "client");
-    // (Opsional) audit log di sini
+    await createUser(email, password, "client"); // createUser sudah meng-hash password
+    rlReset(key); // sukses → reset limiter
     return json({ ok: true, message: "User registered. Please login." }, { status: 201 });
   } catch {
-    // Anti-enumeration: jangan bocorkan apakah email sudah terdaftar
-    recordAttempt(key);
+    // Misal email sudah ada → tanggapi generik agar tak bisa enumerasi
+    rlBumpFailure(key, DEFAULT_RL);
+    await randomDelay();
     return json({ ok: false, error: "Registration failed" }, { status: 400 });
   }
 }

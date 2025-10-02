@@ -8,14 +8,16 @@ import { withCsrfHeader } from "@/lib/csrf-client";
    Types & dummy data
 ------------------------------------------- */
 type Tag = "Legal" | "Finance" | "Tech" | "HR";
+type DocType = "pdf" | "word" | "excel" | "image" | "txt";
 type Doc = {
   id: string;
   name: string;
   owner: string;
-  updatedAt: string; // ISO-ish (YYYY-MM-DD HH:mm)
+  updatedAt: string;          // "YYYY-MM-DD HH:mm"
   sizeKB: number;
   tag: Tag;
-  type: "pdf" | "word" | "excel" | "image" | "txt";
+  type: DocType;
+  href?: string;              // optional external link (Add via URL)
 };
 
 const START_DOCS: Doc[] = [
@@ -30,7 +32,7 @@ const START_DOCS: Doc[] = [
 ];
 
 /* -------------------------------------------
-   Small UI helpers: Shimmer, Toast, TagBadge
+   Small UI helpers
 ------------------------------------------- */
 function Shimmer({ className = "" }: { className?: string }) {
   return (
@@ -61,7 +63,36 @@ function TagBadge({ children }: { children: React.ReactNode }) {
 }
 
 /* -------------------------------------------
-   Share modal (reusable, demo)
+   Modal shell (pakai token modal-surface/overlay)
+------------------------------------------- */
+function ModalShell({
+  title,
+  children,
+  onClose,
+  widthClass = "max-w-md",
+}: {
+  title: string;
+  children: React.ReactNode;
+  onClose: () => void;
+  widthClass?: string;
+}) {
+  return (
+    <div className="fixed inset-0 z-50">
+      <div className="absolute inset-0 modal-overlay" onClick={onClose} aria-hidden="true" />
+      <div
+        role="dialog"
+        aria-modal="true"
+        className={`absolute left-1/2 top-1/2 w-[92vw] ${widthClass} -translate-x-1/2 -translate-y-1/2 modal-surface p-5 text-primary shadow-2xl`}
+      >
+        <h3 className="text-lg font-semibold">{title}</h3>
+        {children}
+      </div>
+    </div>
+  );
+}
+
+/* -------------------------------------------
+   Share modal (demo)
 ------------------------------------------- */
 function ShareModal({
   doc,
@@ -78,67 +109,135 @@ function ShareModal({
   if (!doc) return null;
 
   return (
-    <div className="fixed inset-0 z-50">
-      <div className="absolute inset-0 bg-black/50" onClick={onClose} aria-hidden="true" />
-      <div
-        role="dialog"
-        aria-modal="true"
-        aria-label="Create share link"
-        className="absolute left-1/2 top-1/2 w-[92vw] max-w-md -translate-x-1/2 -translate-y-1/2 rounded-2xl border border-[var(--surface-border)] bg-[var(--surface-bg)] p-5 text-primary shadow-xl"
-      >
-        <h3 className="text-lg font-semibold">Share “{doc.name}”</h3>
+    <ModalShell title={`Share “${doc.name}”`} onClose={onClose}>
+      <div className="mt-4 space-y-3 text-sm">
+        <label className="block">
+          <span className="text-muted">Expiry (days)</span>
+          <input
+            type="number"
+            min={1}
+            max={30}
+            value={expiry}
+            onChange={(e) => setExpiry(Number(e.target.value))}
+            className="mt-1 w-full rounded-lg border border-[var(--surface-border)] bg-transparent px-3 py-2"
+          />
+        </label>
 
-        <div className="mt-4 space-y-3 text-sm">
-          <label className="block">
-            <span className="text-muted">Expiry (days)</span>
-            <input
-              type="number"
-              min={1}
-              max={30}
-              value={expiry}
-              onChange={(e) => setExpiry(Number(e.target.value))}
-              className="mt-1 w-full rounded-lg border border-[var(--surface-border)] bg-transparent px-3 py-2"
-            />
-          </label>
+        <label className="flex items-center gap-2">
+          <input type="checkbox" checked={allowDl} onChange={(e) => setAllowDl(e.target.checked)} />
+          <span className="text-primary">Allow download</span>
+        </label>
 
-          <label className="flex items-center gap-2">
-            <input type="checkbox" checked={allowDl} onChange={(e) => setAllowDl(e.target.checked)} />
-            <span className="text-primary">Allow download</span>
-          </label>
-
-          <label className="block">
-            <span className="text-muted">Password (optional)</span>
-            <input
-              type="text"
-              value={pw}
-              onChange={(e) => setPw(e.target.value)}
-              className="mt-1 w-full rounded-lg border border-[var(--surface-border)] bg-transparent px-3 py-2"
-              placeholder="••••••"
-            />
-          </label>
-        </div>
-
-        <div className="mt-5 flex justify-end gap-2">
-          <button
-            onClick={onClose}
-            className="rounded-lg border border-[var(--surface-border)] px-3 py-1.5 text-sm hover:bg-neutral-50 dark:hover:bg-white/10"
-          >
-            Cancel
-          </button>
-          <button
-            onClick={() => {
-              // Copy dummy share link to clipboard (demo)
-              const link = `${location.origin}/share/demo/${crypto.randomUUID()}`;
-              navigator.clipboard?.writeText(link).catch(() => {});
-              onCreate({ expiryDays: expiry, allowDownload: allowDl, password: pw || undefined });
-            }}
-            className="rounded-lg border border-[var(--surface-border)] bg-black/80 px-3 py-1.5 text-sm text-white hover:bg-black dark:bg-white/20 dark:text-white"
-          >
-            Create link
-          </button>
-        </div>
+        <label className="block">
+          <span className="text-muted">Password (optional)</span>
+          <input
+            type="text"
+            value={pw}
+            onChange={(e) => setPw(e.target.value)}
+            className="mt-1 w-full rounded-lg border border-[var(--surface-border)] bg-transparent px-3 py-2"
+            placeholder="••••••"
+          />
+        </label>
       </div>
-    </div>
+
+      <div className="mt-5 flex justify-end gap-2">
+        <button
+          onClick={onClose}
+          className="rounded-lg border border-[var(--surface-border)] px-3 py-1.5 text-sm hover:bg-neutral-50 dark:hover:bg-white/10"
+        >
+          Cancel
+        </button>
+        <button
+          onClick={() => {
+            const link = `${location.origin}/share/demo/${crypto.randomUUID()}`;
+            navigator.clipboard?.writeText(link).catch(() => {});
+            onCreate({ expiryDays: expiry, allowDownload: allowDl, password: pw || undefined });
+          }}
+          className="rounded-lg border border-[var(--surface-border)] bg-black/80 px-3 py-1.5 text-sm text-white hover:bg-black dark:bg-white/20 dark:text-white"
+        >
+          Create link
+        </button>
+      </div>
+    </ModalShell>
+  );
+}
+
+/* -------------------------------------------
+   Add via URL modal (demo)
+------------------------------------------- */
+function AddUrlModal({
+  open,
+  onClose,
+  onAdd,
+}: {
+  open: boolean;
+  onClose: () => void;
+  onAdd: (doc: Doc) => void;
+}) {
+  const [url, setUrl] = useState("");
+
+  function typeFromExt(path: string): DocType {
+    const p = path.toLowerCase();
+    if (p.endsWith(".pdf")) return "pdf";
+    if (p.endsWith(".docx") || p.endsWith(".doc")) return "word";
+    if (p.endsWith(".xlsx") || p.endsWith(".xls") || p.endsWith(".csv")) return "excel";
+    if (p.endsWith(".png") || p.endsWith(".jpg") || p.endsWith(".jpeg") || p.endsWith(".gif")) return "image";
+    return "txt";
+  }
+
+  function onAddClick() {
+    try {
+      const u = new URL(url.trim());
+      const seg = u.pathname.split("/").filter(Boolean);
+      const base = seg[seg.length - 1] || "document.pdf";
+      const now = new Date();
+      const d: Doc = {
+        id: crypto.randomUUID(),
+        name: base,
+        owner: "you@client.com",
+        updatedAt: now.toISOString().slice(0, 16).replace("T", " "),
+        sizeKB: 256 + Math.round(Math.random() * 1500),
+        tag: "Tech",
+        type: typeFromExt(base),
+        href: u.toString(),
+      };
+      onAdd(d);
+      onClose();
+    } catch {
+      // noop
+    }
+  }
+
+  if (!open) return null;
+  return (
+    <ModalShell title="Add document from URL" onClose={onClose}>
+      <div className="mt-3 space-y-2 text-sm">
+        <label className="block">
+          <span className="text-muted">Public URL (http/https)</span>
+          <input
+            autoFocus
+            value={url}
+            onChange={(e) => setUrl(e.target.value)}
+            placeholder="https://example.com/file.pdf"
+            className="mt-1 w-full rounded-lg border border-[var(--surface-border)] bg-transparent px-3 py-2"
+          />
+        </label>
+      </div>
+      <div className="mt-5 flex justify-end gap-2">
+        <button
+          onClick={onClose}
+          className="rounded-lg border border-[var(--surface-border)] px-3 py-1.5 text-sm hover:bg-neutral-50 dark:hover:bg-white/10"
+        >
+          Cancel
+        </button>
+        <button
+          onClick={onAddClick}
+          className="rounded-lg border border-[var(--surface-border)] bg-black/80 px-3 py-1.5 text-sm text-white hover:bg-black dark:bg-white/20 dark:text-white"
+        >
+          Add
+        </button>
+      </div>
+    </ModalShell>
   );
 }
 
@@ -161,7 +260,7 @@ const TYPE_ICON: Record<Doc["type"], string> = {
 const PAGE_SIZE = 6;
 const TAGS: ("All" | Tag)[] = ["All", "Legal", "Finance", "Tech", "HR"];
 
-// MIME whitelist (demo): hindari eksekutabel
+// MIME whitelist (demo)
 const ALLOWED = new Set([
   "application/pdf",
   "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
@@ -184,6 +283,7 @@ export default function Documents() {
   const [sortBy, setSortBy] = useState<SortBy>("updatedAt");
   const [sortDir, setSortDir] = useState<SortDir>("desc");
   const [dragActive, setDragActive] = useState(false);
+  const [urlOpen, setUrlOpen] = useState(false);
 
   const fileInput = useRef<HTMLInputElement>(null);
 
@@ -210,7 +310,7 @@ export default function Documents() {
       let vb: number | string = "";
       if (sortBy === "name") { va = a.name.toLowerCase(); vb = b.name.toLowerCase(); }
       if (sortBy === "sizeKB") { va = a.sizeKB; vb = b.sizeKB; }
-      if (sortBy === "updatedAt") { va = a.updatedAt; vb = b.updatedAt; } // works for YYYY-MM-DD HH:mm
+      if (sortBy === "updatedAt") { va = a.updatedAt; vb = b.updatedAt; }
       const cmp = va < vb ? -1 : va > vb ? 1 : 0;
       return sortDir === "asc" ? cmp : -cmp;
     });
@@ -235,18 +335,17 @@ export default function Documents() {
     setToast(`${msg} — demo only`);
   }
 
-  // upload (demo): validate + fake progress then add
+  // upload (demo)
   function onPickFiles() {
     fileInput.current?.click();
   }
   function sanitizeName(name: string) {
-    // Amankan path traversal & karakter aneh (demo)
     return name.replaceAll(/[/\\]/g, "_").replaceAll(/[\u0000-\u001F]/g, "").trim();
   }
-  function typeFromMime(m: string): Doc["type"] {
+  function typeFromMime(m: string): DocType {
     if (m.includes("pdf")) return "pdf";
     if (m.includes("word")) return "word";
-    if (m.includes("sheet")) return "excel";
+    if (m.includes("sheet") || m.includes("excel")) return "excel";
     if (m.startsWith("image/")) return "image";
     return "txt";
   }
@@ -263,7 +362,6 @@ export default function Documents() {
         continue;
       }
 
-      // fake progress
       await new Promise<void>((resolve) => setTimeout(resolve, 250 + Math.random() * 400));
 
       const now = new Date();
@@ -309,6 +407,21 @@ export default function Documents() {
     setDragActive(true);
   }
 
+  // export CSV (current filtered+sorted view, all pages)
+  function exportCsv() {
+    const rows = [["Name","Owner","Updated","Size(KB)","Tag","Type","URL"]];
+    for (const d of sorted) {
+      rows.push([d.name, d.owner, d.updatedAt, String(d.sizeKB), d.tag, d.type, d.href ?? ""]);
+    }
+    const csv = rows.map(r => r.map((c) => `"${String(c).replaceAll('"','""')}"`).join(",")).join("\r\n");
+    const blob = new Blob([csv], { type: "text/csv;charset=utf-8" });
+    const a = document.createElement("a");
+    a.href = URL.createObjectURL(blob);
+    a.download = "documents.csv";
+    a.click();
+    URL.revokeObjectURL(a.href);
+  }
+
   return (
     <section className="mx-auto max-w-6xl space-y-6">
       {toast && <Toast msg={toast} onClose={() => setToast(null)} />}
@@ -334,14 +447,19 @@ export default function Documents() {
             >
               New Folder
             </button>
+            <button
+              onClick={() => setUrlOpen(true)}
+              className="rounded-lg border border-[var(--surface-border)] px-3 py-2 text-sm text-primary hover:bg-neutral-50 dark:hover:bg-white/10"
+            >
+              Add via URL
+            </button>
             <input
               ref={fileInput}
               type="file"
               multiple
               className="hidden"
               onChange={(e) => handleFiles(e.target.files)}
-              // Keamanan (demo): tidak pakai accept wildcard executable
-              accept=".pdf,.docx,.xlsx,.png,.jpg,.jpeg,.txt"
+              accept=".pdf,.doc,.docx,.xls,.xlsx,.csv,.png,.jpg,.jpeg,.txt"
             />
           </div>
 
@@ -358,16 +476,11 @@ export default function Documents() {
             />
             <select
               value={tag}
-              onChange={(e) => {
-                setPage(1);
-                setTag(e.target.value as any);
-              }}
+              onChange={(e) => { setPage(1); setTag(e.target.value as any); }}
               className="rounded-lg border border-[var(--surface-border)] bg-transparent px-3 py-2 text-sm"
               aria-label="Filter by tag"
             >
-              {TAGS.map((t) => (
-                <option key={t}>{t}</option>
-              ))}
+              {TAGS.map((t) => (<option key={t}>{t}</option>))}
             </select>
 
             {/* Sort controls */}
@@ -388,6 +501,12 @@ export default function Documents() {
               title="Sort direction"
             >
               {sortDir === "asc" ? "↑ Asc" : "↓ Desc"}
+            </button>
+            <button
+              onClick={exportCsv}
+              className="rounded-lg border border-[var(--surface-border)] px-3 py-2 text-sm hover:bg-neutral-50 dark:hover:bg-white/10"
+            >
+              Export CSV
             </button>
           </div>
         </div>
@@ -508,6 +627,14 @@ export default function Documents() {
                       </td>
                       <td className="py-2 text-right">
                         <div className="inline-flex gap-2">
+                          {d.href && (
+                            <button
+                              onClick={() => window.open(d.href, "_blank", "noopener,noreferrer")}
+                              className="rounded-md border border-[var(--surface-border)] px-2 py-1 text-xs text-primary hover:bg-neutral-50 dark:hover:bg-white/10"
+                            >
+                              Open
+                            </button>
+                          )}
                           <button
                             onClick={() => setShareDoc(d)}
                             className="rounded-md border border-[var(--surface-border)] px-2 py-1 text-xs text-primary hover:bg-neutral-50 dark:hover:bg-white/10"
@@ -586,14 +713,21 @@ export default function Documents() {
         )}
       </div>
 
+      {/* Modals */}
       <ShareModal
         doc={shareDoc}
         onClose={() => setShareDoc(null)}
         onCreate={() => {
           setShareDoc(null);
           setToast("Share link created (demo)");
-          // produksi → POST ke /api/shares dengan withCsrfHeader(...)
-          // await fetch("/api/shares", withCsrfHeader({ method:"POST", body: JSON.stringify({...}) }));
+        }}
+      />
+      <AddUrlModal
+        open={urlOpen}
+        onClose={() => setUrlOpen(false)}
+        onAdd={(d) => {
+          setDocs((cur) => [d, ...cur]);
+          setToast("Added via URL (demo)");
         }}
       />
     </section>

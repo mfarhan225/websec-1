@@ -1,0 +1,14 @@
+# security.txt for Credense (RFC 9116)
+# Ganti email/domain/URL di bawah sesuai milikmu.
+
+Contact: mailto:security@yourdomain.tld
+# Alternatif kontak (opsional): Contact: https://yourdomain.tld/security-report
+Preferred-Languages: en, id
+Policy: https://yourdomain.tld/security-policy
+Acknowledgments: https://yourdomain.tld/security-acknowledgments
+# Jika punya PGP public key, sebutkan URL-nya:
+# Encryption: https://yourdomain.tld/pgp/credense-security.asc
+Hiring: https://yourdomain.tld/careers
+# Atur masa berlaku file ini (UTC, RFC 3339)
+Expires: 2026-12-31T23:59:59Z
+Canonical: https://yourdomain.tld/.well-known/security.txt

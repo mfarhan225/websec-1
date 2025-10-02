@@ -2,7 +2,8 @@
 "use client";
 
 import { useState } from "react";
-import ThemeToggle from "@/components/ThemeToggle";
+import { withCsrfHeader } from "@/lib/csrf-client";
+import { useRouter } from "next/navigation";
 
 type SessionRow = {
   id: string;
@@ -14,24 +15,31 @@ type SessionRow = {
 
 // --- demo sessions (in-memory) ---
 const DEMO_SESSIONS: SessionRow[] = [
-  { id: "cur", device: "Chrome · Windows", ip: "203.0.113.5", lastActive: "Just now", current: true },
-  { id: "m1", device: "Safari · iPhone", ip: "198.51.100.12", lastActive: "2 days ago" },
-  { id: "m2", device: "Edge · Workstation", ip: "203.0.113.17", lastActive: "1 week ago" },
+  { id: "cur", device: "Chrome · Windows",   ip: "203.0.113.5",  lastActive: "Just now",   current: true },
+  { id: "m1",  device: "Safari · iPhone",    ip: "198.51.100.12",lastActive: "2 days ago" },
+  { id: "m2",  device: "Edge · Workstation", ip: "203.0.113.17", lastActive: "1 week ago" },
 ];
 
 export default function Settings() {
+  const router = useRouter();
+
   // Security toggles (demo only)
   const [require2FA, setRequire2FA] = useState(false);
   const [emailVerified, setEmailVerified] = useState(false);
   const [notice, setNotice] = useState<string | null>(null);
 
-  // Change password state (client-side validation only; no backend call in demo)
-  const [pw1, setPw1] = useState("");
-  const [pw2, setPw2] = useState("");
+  // Change password state
+  const [oldPw, setOldPw] = useState("");
+  const [newPw1, setNewPw1] = useState("");
+  const [newPw2, setNewPw2] = useState("");
 
   const strong =
-    /[a-z]/.test(pw1) && /[A-Z]/.test(pw1) && /[0-9]/.test(pw1) && /[^A-Za-z0-9]/.test(pw1) && pw1.length >= 12;
-  const match = pw1.length > 0 && pw1 === pw2;
+    /[a-z]/.test(newPw1) &&
+    /[A-Z]/.test(newPw1) &&
+    /[0-9]/.test(newPw1) &&
+    /[^A-Za-z0-9]/.test(newPw1) &&
+    newPw1.length >= 12;
+  const match = newPw1.length > 0 && newPw1 === newPw2;
 
   function info(msg: string) {
     setNotice(msg);
@@ -40,16 +48,54 @@ export default function Settings() {
 
   async function handleChangePassword(e: React.FormEvent) {
     e.preventDefault();
-    if (!strong || !match) return;
-    // Demo: cukup tunjukkan sukses (di produksi: panggil endpoint change password)
-    info("Password updated (demo).");
-    setPw1(""); setPw2("");
+    if (!strong || !match || oldPw.length === 0) return;
+
+    try {
+      const res = await fetch(
+        "/api/change-password",
+        withCsrfHeader({
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ oldPassword: oldPw, newPassword: newPw1 }),
+        })
+      );
+
+      const data = await res.json().catch(() => ({}));
+      if (res.ok) {
+        info("Password updated. Please login again…");
+        setOldPw(""); setNewPw1(""); setNewPw2("");
+        setTimeout(() => router.push("/login"), 600);
+      } else {
+        info(data?.error || "Failed to update password");
+      }
+    } catch {
+      info("Network error");
+    }
+  }
+
+  async function logoutAllSessions() {
+    try {
+      const res = await fetch(
+        "/api/me/logout-all",
+        withCsrfHeader({ method: "POST", headers: { "Content-Type": "application/json" } })
+      );
+      if (res.ok) {
+        info("All sessions revoked. Redirecting to login…");
+        setTimeout(() => router.push("/login"), 500);
+      } else {
+        const data = await res.json().catch(() => ({}));
+        info(data?.error || "Failed to revoke sessions");
+      }
+    } catch {
+      info("Network error");
+    }
   }
 
   const [sessions, setSessions] = useState<SessionRow[]>(DEMO_SESSIONS);
   function revoke(id: string) {
-    // Demo revoke (front-end only)
-    setSessions((s) => s.filter((r) => r.id !== id || r.current)); // jangan hapus current
+    setSessions((rows) =>
+      rows.filter((r) => r.id !== id || r.current) // jangan hapus current
+    );
     info(id === "cur" ? "Cannot revoke current session." : "Session revoked (demo).");
   }
 
@@ -68,34 +114,28 @@ export default function Settings() {
 
       {/* Grid 2 kolom */}
       <div className="grid gap-4 md:grid-cols-2">
-        {/* Appearance / Profile */}
+        {/* Account (tema toggle DIHAPUS) */}
         <div className="surface p-5 shadow-[0_8px_30px_rgba(0,0,0,0.06)]">
-          <h2 className="text-base font-medium text-primary">Appearance</h2>
-          <p className="text-sm text-muted">Ganti mode terang/gelap.</p>
-          <div className="mt-3">
-            <ThemeToggle />
-          </div>
+          <h2 className="text-base font-medium text-primary">Account</h2>
+          <p className="text-sm text-muted">Informasi akun & verifikasi email.</p>
 
-          <div className="mt-6 border-t border-[var(--surface-border)] pt-4">
-            <h3 className="text-sm font-medium text-primary">Account</h3>
-            <div className="mt-2 space-y-2 text-sm">
-              <div className="flex items-center justify-between">
-                <span className="text-muted">Email</span>
-                <span className="font-medium text-primary">you@client.com</span>
-              </div>
-              <div className="flex items-center justify-between">
-                <span className="text-muted">Status</span>
-                <span className={emailVerified ? "text-emerald-600" : "text-amber-600"}>
-                  {emailVerified ? "Verified" : "Unverified"}
-                </span>
-              </div>
-              <button
-                onClick={() => { setEmailVerified(true); info("Verification email sent (demo)."); }}
-                className="mt-2 rounded-lg border border-[var(--surface-border)] px-3 py-2 text-sm text-primary hover:bg-neutral-50 dark:hover:bg-white/10"
-              >
-                {emailVerified ? "Resend verification" : "Send verification email"}
-              </button>
+          <div className="mt-4 space-y-2 text-sm">
+            <div className="flex items-center justify-between">
+              <span className="text-muted">Email</span>
+              <span className="font-medium text-primary">you@client.com</span>
             </div>
+            <div className="flex items-center justify-between">
+              <span className="text-muted">Status</span>
+              <span className={emailVerified ? "text-emerald-600" : "text-amber-600"}>
+                {emailVerified ? "Verified" : "Unverified"}
+              </span>
+            </div>
+            <button
+              onClick={() => { setEmailVerified(true); info("Verification email sent (demo)."); }}
+              className="mt-2 rounded-lg border border-[var(--surface-border)] px-3 py-2 text-sm text-primary hover:bg-neutral-50 dark:hover:bg-white/10"
+            >
+              {emailVerified ? "Resend verification" : "Send verification email"}
+            </button>
           </div>
         </div>
 
@@ -133,36 +173,48 @@ export default function Settings() {
           {/* Change password */}
           <form onSubmit={handleChangePassword} className="mt-4 rounded-xl border border-[var(--surface-border)] p-3">
             <div className="text-sm font-medium text-primary">Change Password</div>
-            <div className="mt-2 grid gap-3 md:grid-cols-2">
+            <div className="mt-2 grid gap-3 md:grid-cols-3">
               <input
                 type="password"
-                placeholder="New password"
-                value={pw1}
-                onChange={(e) => setPw1(e.target.value)}
+                placeholder="Current password"
+                value={oldPw}
+                onChange={(e) => setOldPw(e.target.value)}
                 className="rounded-lg border border-[var(--surface-border)] bg-white/90 px-3 py-2 text-sm text-primary
                            dark:bg-white/10 dark:text-white"
                 required
+                autoComplete="current-password"
+              />
+              <input
+                type="password"
+                placeholder="New password"
+                value={newPw1}
+                onChange={(e) => setNewPw1(e.target.value)}
+                className="rounded-lg border border-[var(--surface-border)] bg-white/90 px-3 py-2 text-sm text-primary
+                           dark:bg-white/10 dark:text-white"
+                required
+                autoComplete="new-password"
               />
               <input
                 type="password"
                 placeholder="Confirm new password"
-                value={pw2}
-                onChange={(e) => setPw2(e.target.value)}
+                value={newPw2}
+                onChange={(e) => setNewPw2(e.target.value)}
                 className="rounded-lg border border-[var(--surface-border)] bg-white/90 px-3 py-2 text-sm text-primary
                            dark:bg-white/10 dark:text-white"
                 required
+                autoComplete="new-password"
               />
             </div>
             <ul className="mt-2 text-xs text-muted">
-              <li className={pw1.length >= 12 ? "text-emerald-600" : ""}>≥ 12 karakter</li>
-              <li className={/[A-Z]/.test(pw1) ? "text-emerald-600" : ""}>Ada huruf besar</li>
-              <li className={/[a-z]/.test(pw1) ? "text-emerald-600" : ""}>Ada huruf kecil</li>
-              <li className={/[0-9]/.test(pw1) ? "text-emerald-600" : ""}>Ada angka</li>
-              <li className={/[^A-Za-z0-9]/.test(pw1) ? "text-emerald-600" : ""}>Ada simbol</li>
+              <li className={newPw1.length >= 12 ? "text-emerald-600" : ""}>≥ 12 karakter</li>
+              <li className={/[A-Z]/.test(newPw1) ? "text-emerald-600" : ""}>Ada huruf besar</li>
+              <li className={/[a-z]/.test(newPw1) ? "text-emerald-600" : ""}>Ada huruf kecil</li>
+              <li className={/[0-9]/.test(newPw1) ? "text-emerald-600" : ""}>Ada angka</li>
+              <li className={/[^A-Za-z0-9]/.test(newPw1) ? "text-emerald-600" : ""}>Ada simbol</li>
               <li className={match ? "text-emerald-600" : ""}>Konfirmasi cocok</li>
             </ul>
             <button
-              disabled={!strong || !match}
+              disabled={!strong || !match || !oldPw}
               className="mt-3 rounded-lg border border-[var(--surface-border)] px-3 py-2 text-sm text-primary hover:bg-neutral-50 disabled:opacity-50
                          dark:hover:bg-white/10"
             >
@@ -190,7 +242,12 @@ export default function Settings() {
                 {sessions.map((s) => (
                   <tr key={s.id} className="border-t border-[var(--surface-border)]">
                     <td className="py-2 text-primary">
-                      {s.device} {s.current && <span className="ml-2 rounded-full border border-[var(--surface-border)] px-2 py-0.5 text-xs">current</span>}
+                      {s.device}{" "}
+                      {s.current && (
+                        <span className="ml-2 rounded-full border border-[var(--surface-border)] px-2 py-0.5 text-xs">
+                          current
+                        </span>
+                      )}
                     </td>
                     <td className="py-2 text-primary">{s.ip}</td>
                     <td className="py-2 text-primary">{s.lastActive}</td>
@@ -216,7 +273,14 @@ export default function Settings() {
 
         <div className="surface p-5 shadow-[0_8px_30px_rgba(0,0,0,0.06)]">
           <h2 className="text-base font-medium text-primary">Danger Zone</h2>
-          <p className="text-sm text-muted">Aksi sensitif. Nonaktif di demo.</p>
+          <p className="text-sm text-muted">Aksi sensitif.</p>
+          <button
+            onClick={logoutAllSessions}
+            className="mt-3 w-full rounded-lg border border-amber-300/70 px-3 py-2 text-sm text-amber-700 hover:bg-amber-50
+                       dark:border-amber-400/50 dark:text-amber-300 dark:hover:bg-amber-400/10"
+          >
+            Logout all sessions
+          </button>
           <button
             disabled
             className="mt-3 w-full rounded-lg border border-red-300/60 px-3 py-2 text-sm text-red-600 opacity-70

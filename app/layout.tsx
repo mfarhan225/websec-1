@@ -4,8 +4,7 @@ import { Geist, Geist_Mono } from "next/font/google";
 import "./globals.css";
 
 import ThemeProvider from "@/components/ThemeProvider";
-import Sidebar from "@/components/Sidebar";
-import TopBar from "@/components/TopBar";
+import ClientChrome from "@/components/ClientChrome";
 
 const geistSans = Geist({ variable: "--font-geist-sans", subsets: ["latin"] });
 const geistMono = Geist_Mono({ variable: "--font-geist-mono", subsets: ["latin"] });
@@ -13,6 +12,11 @@ const geistMono = Geist_Mono({ variable: "--font-geist-mono", subsets: ["latin"]
 export const metadata: Metadata = {
   title: "Credense",
   description: "Secure B2B Client Document Portal",
+  icons: {
+    icon: "/icon.ico",       // ← file di public/icon.ico
+    shortcut: "/icon.ico",   // (opsional) untuk beberapa browser
+    apple: "/icon.ico",      // (opsional) fallback sederhana
+  },
 };
 
 export default function RootLayout({ children }: Readonly<{ children: React.ReactNode }>) {
@@ -20,13 +24,8 @@ export default function RootLayout({ children }: Readonly<{ children: React.Reac
     <html lang="id" suppressHydrationWarning>
       <body className={`${geistSans.variable} ${geistMono.variable} antialiased`}>
         <ThemeProvider>
-          <TopBar />
-          {/* ⬇️ pakai util bg-app (CSS variables), bukan gradient Tailwind */}
           <div className="min-h-screen bg-app">
-            <div className="min-h-screen flex">
-              <Sidebar />
-              <main className="flex-1 p-4 md:p-8">{children}</main>
-            </div>
+            <ClientChrome>{children}</ClientChrome>
           </div>
         </ThemeProvider>
       </body>
