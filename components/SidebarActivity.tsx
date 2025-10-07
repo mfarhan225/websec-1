@@ -5,10 +5,10 @@ import { ReactNode } from "react";
 
 export type ActivityItem = {
   id: string;
-  icon?: ReactNode;     // emoji atau svg kecil
-  label: string;        // ringkas
-  meta?: string;        // mis. file/folder
-  time?: string;        // mis. “2m”, “1h”
+  icon?: ReactNode;
+  label: string;
+  meta?: string;
+  time?: string;
 };
 
 type Props = {
@@ -26,14 +26,7 @@ export default function SidebarActivity({ items = demoItems, collapsed = false }
   const count = items.length;
 
   return (
-    <div
-      className="
-        rounded-xl border p-3 text-xs backdrop-blur
-        border-neutral-200 bg-white/90 text-neutral-800
-        dark:border-white/20 dark:bg-white/10 dark:text-white/80
-      "
-      aria-label="Recent activity"
-    >
+    <div className="sidebar-card p-3 text-xs" aria-label="Recent activity">
       {collapsed ? (
         <div className="text-center">
           <span aria-hidden>🔔</span> <span className="font-medium">{count}</span>
@@ -44,7 +37,8 @@ export default function SidebarActivity({ items = demoItems, collapsed = false }
             <span className="font-medium">Recent activity</span>
             <Link
               href="/audit"
-              className="rounded px-2 py-0.5 text-[11px] text-indigo-700 hover:bg-indigo-50 dark:text-indigo-300 dark:hover:bg-white/10"
+              className="rounded px-2 py-0.5 text-[11px] text-indigo-700 hover:bg-indigo-50
+                         dark:text-indigo-300 dark:hover:bg-white/10"
             >
               View all
             </Link>
@@ -57,11 +51,9 @@ export default function SidebarActivity({ items = demoItems, collapsed = false }
                 <div className="min-w-0 flex-1">
                   <div className="truncate">
                     <span className="font-medium">{it.label}</span>
-                    {it.meta ? <span className="text-neutral-500 dark:text-white/60"> — {it.meta}</span> : null}
+                    {it.meta ? <span className="opacity-70"> — {it.meta}</span> : null}
                   </div>
-                  {it.time ? (
-                    <div className="text-[11px] text-neutral-500 dark:text-white/50">{it.time} ago</div>
-                  ) : null}
+                  {it.time ? <div className="text-[11px] opacity-60">{it.time} ago</div> : null}
                 </div>
               </li>
             ))}

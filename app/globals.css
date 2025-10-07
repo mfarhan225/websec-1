@@ -283,3 +283,17 @@ html.dark {
   background: var(--overlay-bg);
   backdrop-filter: blur(2px);
 }
+
+/* =========================
+   SIDEBAR: generic card (Storage/Activity)
+   - Solid di light (tidak pudar menyatu)
+   - Kaca tipis di dark
+========================= */
+.sidebar-card{
+  background: var(--storage-bg);
+  border: 1px solid var(--storage-border);
+  color: var(--storage-text);
+  border-radius: 0.75rem;       /* rounded-xl */
+  backdrop-filter: blur(6px);
+  box-shadow: 0 1px 0 rgba(0,0,0,.03);
+}

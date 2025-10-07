@@ -10,10 +10,7 @@ function fmtBytes(n: number) {
   const u = ["B", "KB", "MB", "GB", "TB"];
   let i = 0;
   let v = n;
-  while (v >= 1024 && i < u.length - 1) {
-    v /= 1024;
-    i++;
-  }
+  while (v >= 1024 && i < u.length - 1) { v /= 1024; i++; }
   return `${v.toFixed(v >= 10 || i === 0 ? 0 : 1)} ${u[i]}`;
 }
 
@@ -26,14 +23,7 @@ export default function SidebarStorage({
   const label = `${fmtBytes(usedBytes)} / ${fmtBytes(quotaBytes)}`;
 
   return (
-    <div
-      className="
-        rounded-xl border p-3 text-xs backdrop-blur
-        border-neutral-200 bg-white/90 text-neutral-800
-        dark:border-white/20 dark:bg-white/10 dark:text-white/80
-      "
-      aria-label="Storage usage"
-    >
+    <div className="sidebar-card p-3 text-xs" aria-label="Storage usage">
       {collapsed ? (
         <div className="text-center font-medium">{fmtBytes(usedBytes)}</div>
       ) : (
@@ -43,11 +33,7 @@ export default function SidebarStorage({
             <span className="tabular-nums">{label}</span>
           </div>
           <div className="h-2 rounded-full bg-black/10 dark:bg-black/20">
-            <div
-              className="h-2 rounded-full bg-indigo-500"
-              style={{ width: `${pct}%` }}
-              aria-hidden
-            />
+            <div className="h-2 rounded-full bg-indigo-500" style={{ width: `${pct}%` }} aria-hidden />
           </div>
         </>
       )}
