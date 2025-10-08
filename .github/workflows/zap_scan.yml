@@ -1,0 +1,15 @@
+name: OWASP ZAP Scan
+
+on:
+  workflow_dispatch:   # manual trigger
+  schedule:
+    - cron: '0 0 * * 0'  # tiap minggu
+
+jobs:
+  zap_scan:
+    runs-on: ubuntu-latest
+    steps:
+      - name: ZAP Baseline Scan
+        uses: zaproxy/action-baseline@v0.9.0
+        with:
+          target: "https://credense.netlify.app/"
