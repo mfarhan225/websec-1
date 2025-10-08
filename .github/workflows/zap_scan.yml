@@ -1,13 +1,18 @@
 name: OWASP ZAP Scan
 
 on:
-  workflow_dispatch:   # manual trigger
+  workflow_dispatch:  # manual trigger
   schedule:
     - cron: '0 0 * * 0'  # tiap minggu
 
 jobs:
   zap_scan:
     runs-on: ubuntu-latest
+    
+    permissions:
+      contents: read
+      issues: write 
+
     steps:
       - name: ZAP Baseline Scan
         uses: zaproxy/action-baseline@v0.9.0
